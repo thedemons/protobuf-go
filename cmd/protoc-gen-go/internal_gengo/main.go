@@ -138,6 +138,13 @@ func generateOneFile(gen *protogen.Plugin, file *protogen.File, f *fileInfo, var
 	for i, imps := 0, f.Desc.Imports(); i < imps.Len(); i++ {
 		genImport(gen, g, f, imps.Get(i))
 	}
+	for _, aliasMsg := range file.Aliases {
+		goType, pointer := fieldGoType(g, f, aliasMsg.Fields[0])
+		if pointer {
+			goType = "*" + goType
+		}
+		g.P(aliasMsg.Comments.Leading.String(), "type ", aliasMsg.GoIdent.GoName, " ", goType)
+	}
 	for _, enum := range f.allEnums {
 		genEnum(g, f, enum)
 	}

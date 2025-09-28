@@ -67,6 +67,7 @@ func main() {
 
 				for msgIdx, msg := range f.Messages {
 					if getAliasType(msg) != nil {
+						f.Aliases = append(f.Aliases, msg)
 						continue
 					}
 

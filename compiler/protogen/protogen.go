@@ -481,6 +481,7 @@ type File struct {
 	Messages   []*Message   // top-level message declarations
 	Extensions []*Extension // top-level extension declarations
 	Services   []*Service   // top-level service declarations
+	Aliases    []*Message
 
 	Generate bool // true if we should generate code for this file
 
@@ -659,6 +660,8 @@ func newEnumValue(gen *Plugin, f *File, message *Message, enum *Enum, desc proto
 		switch sep {
 		case genid.GoFeatures_STRIP_ENUM_PREFIX_KEEP_enum_value:
 			// keep long name
+			name = strs.GoCamelCase(strings.ToLower(string(desc.Name())))
+			name = parentIdent.GoName + strs.TrimEnumPrefix(name, prefix)
 
 		case genid.GoFeatures_STRIP_ENUM_PREFIX_STRIP_enum_value:
 			name = parentIdent.GoName + "_" + strs.TrimEnumPrefix(string(desc.Name()), prefix)
