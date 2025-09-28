@@ -15,14 +15,27 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	gengo "google.golang.org/protobuf/cmd/protoc-gen-go/internal_gengo"
 	"google.golang.org/protobuf/compiler/protogen"
+	"google.golang.org/protobuf/internal/filedesc"
 	"google.golang.org/protobuf/internal/version"
+	"google.golang.org/protobuf/types/descriptorpb"
 )
 
 const genGoDocURL = "https://protobuf.dev/reference/go/go-generated"
 const grpcDocURL = "https://grpc.io/docs/languages/go/quickstart/#regenerate-grpc-code"
+
+func getAliasType(msg *protogen.Message) *protogen.Field {
+	if msg == nil || !strings.Contains(string(msg.Comments.Leading), "protobuf:alias") {
+		return nil
+	}
+	if len(msg.Fields) != 1 {
+		return nil
+	}
+	return msg.Fields[0]
+}
 
 func main() {
 	if len(os.Args) == 2 && os.Args[1] == "--version" {
@@ -49,6 +62,51 @@ func main() {
 		}
 		for _, f := range gen.Files {
 			if f.Generate {
+				keepMessages := make([]*protogen.Message, 0, len(f.Messages))
+				keepMessageTypes := make([]*descriptorpb.DescriptorProto, 0, len(f.Proto.MessageType))
+
+				for msgIdx, msg := range f.Messages {
+					if getAliasType(msg) != nil {
+						continue
+					}
+
+					for fieldIdx, field := range msg.Fields {
+						aliasField := getAliasType(field.Message)
+						if aliasField == nil {
+							continue
+						}
+
+						fieldDesc := field.Desc.(*filedesc.Field)
+						aliasFieldDesc := aliasField.Desc.(*filedesc.Field)
+						fieldDesc.L1.Options = aliasFieldDesc.L1.Options
+						fieldDesc.L1.Cardinality = aliasFieldDesc.L1.Cardinality
+						fieldDesc.L1.Kind = aliasFieldDesc.L1.Kind
+						fieldDesc.L1.IsProto3Optional = aliasFieldDesc.L1.IsProto3Optional
+						fieldDesc.L1.Default = aliasFieldDesc.L1.Default
+						fieldDesc.L1.EditionFeatures = aliasFieldDesc.L1.EditionFeatures
+						fieldDesc.L1.Enum = nil
+						fieldDesc.L1.Message = nil
+
+						field.Alias = &field.Message.GoIdent
+						field.Message = nil
+						field.Oneof = nil
+						field.Enum = nil
+
+						kind := descriptorpb.FieldDescriptorProto_Type(fieldDesc.L1.Kind)
+						fd := f.Proto.MessageType[msgIdx].Field[fieldIdx]
+						fd.Type = &kind
+						fd.TypeName = nil
+						if fieldDesc.L1.Options != nil {
+							fd.Options = fieldDesc.L1.Options().(*descriptorpb.FieldOptions)
+						}
+					}
+
+					keepMessages = append(keepMessages, msg)
+					keepMessageTypes = append(keepMessageTypes, f.Proto.MessageType[msgIdx])
+				}
+				f.Messages = keepMessages
+				f.Proto.MessageType = keepMessageTypes
+
 				gengo.GenerateFile(gen, f)
 			}
 		}

@@ -864,6 +864,7 @@ type Field struct {
 
 	Enum    *Enum    // type for enum fields; nil otherwise
 	Message *Message // type for message or group fields; nil otherwise
+	Alias   *GoIdent
 
 	Location Location   // location of this field
 	Comments CommentSet // comments associated with this field

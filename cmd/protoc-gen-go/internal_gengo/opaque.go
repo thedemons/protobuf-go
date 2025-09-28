@@ -1077,6 +1077,9 @@ func opaqueFieldGoType(g *protogen.GeneratedFile, f *fileInfo, message *messageI
 		goType = opaqueMessageFieldGoType(g, f, field, message.isOpaque())
 		pointer = false
 	}
+	if field.Alias != nil {
+		goType = g.QualifiedGoIdent(*field.Alias)
+	}
 	switch {
 	case field.Desc.IsList():
 		goType = "[]" + goType
