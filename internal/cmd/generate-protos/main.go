@@ -305,8 +305,16 @@ func generateOpaqueTestprotos() {
 
 func generateEditionsDefaults() {
 	dest := filepath.Join(repoRoot, "internal", "editiondefaults", "editions_defaults.binpb")
+	features := filepath.Join(repoRoot, "src", "google", "protobuf", "go_features.proto")
+	generateFeaturesEditionsDefaults(features, dest)
+
+	dest = filepath.Join(repoRoot, "cmd", "protoc-gen-go", "feature_resolution_test", "test_features_defaults.binpb")
+	features = filepath.Join(repoRoot, "cmd", "protoc-gen-go", "testdata", "features", "test_features.proto")
+	generateFeaturesEditionsDefaults(features, dest)
+}
+
+func generateFeaturesEditionsDefaults(features string, dest string) {
 	srcDescriptorProto := filepath.Join(protoRoot, "src", "google", "protobuf", "descriptor.proto")
-	srcGoFeatures := filepath.Join(repoRoot, "src", "google", "protobuf", "go_features.proto")
 	// The enum in Go string formats to "EDITION_${EDITION}" but protoc expects
 	// the flag in the form "${EDITION}". To work around this, we trim the
 	// "EDITION_" prefix.
@@ -318,7 +326,8 @@ func generateEditionsDefaults() {
 		"--edition_defaults_minimum", minEdition,
 		"--edition_defaults_maximum", maxEdition,
 		"-I"+filepath.Join(protoRoot, "src"), "-I"+filepath.Join(repoRoot, "src"),
-		srcDescriptorProto, srcGoFeatures,
+		"-I"+repoRoot,
+		srcDescriptorProto, features,
 	)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -345,7 +354,10 @@ func generateLocalProtos() {
 		},
 		annotate: map[string]bool{"cmd/protoc-gen-go/testdata/annotations/annotations.proto": true},
 	}, {
-		path:    "internal/testprotos",
+		path: "internal/testprotos",
+		pkgPaths: map[string]string{
+			"internal/testprotos/test/test_nopackage.proto": "google.golang.org/protobuf/internal/testprotos/test/test_nopackage",
+		},
 		exclude: map[string]bool{"internal/testprotos/irregular/irregular.proto": true},
 	}, {
 		path: "src/",
@@ -399,7 +411,7 @@ func generateLocalProtos() {
 					opts += fmt.Sprintf(",apilevelM%v=%v", relPath, "API_OPEN")
 				}
 			}
-			protoc("-I"+filepath.Join(repoRoot, "src"), "-I"+filepath.Join(protoRoot, "src"), "-I"+repoRoot, "--go_out="+opts+":"+tmpDir, filepath.Join(repoRoot, relPath))
+			protoc("-I"+filepath.Join(repoRoot, "src"), "-I"+filepath.Join(protoRoot, "src"), "-I"+repoRoot, "--go_opt="+opts, "--go_out="+tmpDir, filepath.Join(repoRoot, relPath))
 			return nil
 		})
 
@@ -458,6 +470,7 @@ func generateRemoteProtos() {
 		{"src", "editions/golden/test_messages_proto2_editions.proto", "google.golang.org/protobuf/internal/testprotos/conformance/editionsmigration;editions"},
 		{"src", "editions/golden/test_messages_proto3_editions.proto", "google.golang.org/protobuf/internal/testprotos/conformance/editionsmigration;editions"},
 		{"", "conformance/test_protos/test_messages_edition2023.proto", "google.golang.org/protobuf/internal/testprotos/conformance/editions;editions"},
+		{"", "conformance/test_protos/test_messages_edition_unstable.proto", "google.golang.org/protobuf/internal/testprotos/conformance/editionunstable;editionunstable"},
 
 		// Benchmark protos.
 		// TODO: The protobuf repo no longer includes benchmarks.

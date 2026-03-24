@@ -958,6 +958,46 @@ func TestNewFile(t *testing.T) {
 	}
 }
 
+func TestNewFileProto3OptionalExt(t *testing.T) {
+	fdset := &descriptorpb.FileDescriptorSet{
+		File: []*descriptorpb.FileDescriptorProto{
+			mustParseFile(`
+				name: "google/protobuf/descriptor.proto"
+				package: "google.protobuf"
+				message_type: [{
+					name: "EnumValueOptions"
+					extension_range: [{start:1 end:536870912}]
+				}]
+			`),
+			mustParseFile(`
+				syntax: "proto3"
+				name: "test.proto"
+				package: "test"
+				dependency: "google/protobuf/descriptor.proto"
+				extension: [{
+					name: "optional_field"
+					number: 100000
+					label: LABEL_OPTIONAL
+					type: TYPE_STRING
+					extendee: ".google.protobuf.EnumValueOptions"
+					proto3_optional: true
+				}]
+			`),
+		},
+	}
+	f, err := NewFiles(fdset)
+	if err != nil {
+		t.Fatalf("NewFile(test.proto): %v", err)
+	}
+	ext, err := f.FindDescriptorByName("test.optional_field")
+	if err != nil {
+		t.Fatalf(`f.FindDescriptorByName("test.optional_field") = %v`, err)
+	}
+	if !ext.(protoreflect.ExtensionDescriptor).HasOptionalKeyword() {
+		t.Errorf("HasOptionalKeyword() = false, want true for proto3 optional extension field")
+	}
+}
+
 func TestNewFiles(t *testing.T) {
 	fdset := &descriptorpb.FileDescriptorSet{
 		File: []*descriptorpb.FileDescriptorProto{
@@ -1013,6 +1053,66 @@ func TestNewFilesImportCycle(t *testing.T) {
 	_, err := NewFiles(fdset)
 	if err == nil {
 		t.Fatal("NewFiles with import cycle: success, want error")
+	}
+}
+
+func TestNewFilesMissingImports(t *testing.T) {
+	tests := []struct {
+		label string
+		files []*descriptorpb.FileDescriptorProto
+	}{
+		{
+			label: "missing import",
+			files: []*descriptorpb.FileDescriptorProto{
+				mustParseFile(`
+					name: "import.proto"
+					message_type {
+						name: "MissingMessage"
+					}
+				`),
+				mustParseFile(`
+					name: "test.proto"
+					message_type: [{
+						name: "M"
+						field: [{name:"field" number:1 label:LABEL_OPTIONAL type:TYPE_MESSAGE type_name:"MissingMessage"}]
+					}]
+				`),
+			},
+		},
+		{
+			label: "missing import via option_dependency",
+			files: []*descriptorpb.FileDescriptorProto{
+				mustParseFile(`
+					name: "import.proto"
+					message_type {
+						name: "MissingMessage"
+					}
+				`),
+				mustParseFile(`
+					name: "test.proto"
+					edition: EDITION_2024
+					option_dependency: "import.proto"
+					message_type: [{
+						name: "M"
+						field: [{name:"field" number:1 label:LABEL_OPTIONAL type:TYPE_MESSAGE type_name:"MissingMessage"}]
+					}]
+				`),
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.label, func(t *testing.T) {
+			fdset := &descriptorpb.FileDescriptorSet{File: tt.files}
+
+			_, err := NewFiles(fdset)
+
+			if err == nil {
+				t.Fatal("NewFiles with missing import: success, want error")
+			}
+			if !strings.Contains(err.Error(), `cannot resolve`) {
+				t.Fatalf("NewFiles with missing import: got error \"%v\", want import error", err)
+			}
+		})
 	}
 }
 
