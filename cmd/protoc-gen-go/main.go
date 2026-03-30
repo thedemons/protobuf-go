@@ -80,7 +80,7 @@ func main() {
 						fieldDesc := field.Desc.(*filedesc.Field)
 						aliasFieldDesc := aliasField.Desc.(*filedesc.Field)
 						fieldDesc.L1.Options = aliasFieldDesc.L1.Options
-						fieldDesc.L1.Cardinality = aliasFieldDesc.L1.Cardinality
+						// fieldDesc.L1.Cardinality = aliasFieldDesc.L1.Cardinality
 						fieldDesc.L1.Kind = aliasFieldDesc.L1.Kind
 						fieldDesc.L1.IsProto3Optional = aliasFieldDesc.L1.IsProto3Optional
 						fieldDesc.L1.Default = aliasFieldDesc.L1.Default
