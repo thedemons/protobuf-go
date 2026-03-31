@@ -21,6 +21,7 @@ import (
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/internal/filedesc"
 	"google.golang.org/protobuf/internal/version"
+	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/descriptorpb"
 )
 
@@ -79,7 +80,11 @@ func main() {
 
 						fieldDesc := field.Desc.(*filedesc.Field)
 						aliasFieldDesc := aliasField.Desc.(*filedesc.Field)
-						fieldDesc.L1.Options = aliasFieldDesc.L1.Options
+
+						if fieldDesc.L1.Cardinality != protoreflect.Repeated {
+							fieldDesc.L1.Options = aliasFieldDesc.L1.Options
+						}
+
 						// fieldDesc.L1.Cardinality = aliasFieldDesc.L1.Cardinality
 						fieldDesc.L1.Kind = aliasFieldDesc.L1.Kind
 						fieldDesc.L1.IsProto3Optional = aliasFieldDesc.L1.IsProto3Optional
