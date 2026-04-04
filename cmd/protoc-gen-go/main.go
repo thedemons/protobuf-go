@@ -38,6 +38,46 @@ func getAliasType(msg *protogen.Message) *protogen.Field {
 	return msg.Fields[0]
 }
 
+func processMessage(f *protogen.File, msg *protogen.Message, fProtoMsg *descriptorpb.DescriptorProto) {
+	for fieldIdx, field := range msg.Fields {
+		aliasField := getAliasType(field.Message)
+		if aliasField == nil {
+			continue
+		}
+		fieldDesc := field.Desc.(*filedesc.Field)
+		aliasFieldDesc := aliasField.Desc.(*filedesc.Field)
+
+		if fieldDesc.L1.Cardinality != protoreflect.Repeated {
+			fieldDesc.L1.Options = aliasFieldDesc.L1.Options
+		}
+
+		// fieldDesc.L1.Cardinality = aliasFieldDesc.L1.Cardinality
+		fieldDesc.L1.Kind = aliasFieldDesc.L1.Kind
+		fieldDesc.L1.IsProto3Optional = aliasFieldDesc.L1.IsProto3Optional
+		fieldDesc.L1.Default = aliasFieldDesc.L1.Default
+		fieldDesc.L1.EditionFeatures = aliasFieldDesc.L1.EditionFeatures
+		fieldDesc.L1.Enum = nil
+		fieldDesc.L1.Message = nil
+
+		field.Alias = &field.Message.GoIdent
+		field.Message = nil
+		field.Oneof = nil
+		field.Enum = nil
+
+		kind := descriptorpb.FieldDescriptorProto_Type(fieldDesc.L1.Kind)
+		fd := fProtoMsg.Field[fieldIdx]
+		fd.Type = &kind
+		fd.TypeName = nil
+		if fieldDesc.L1.Options != nil {
+			fd.Options = fieldDesc.L1.Options().(*descriptorpb.FieldOptions)
+		}
+	}
+
+	// Recurse into nested messages
+	for nestedIdx, nested := range msg.Messages {
+		processMessage(f, nested, fProtoMsg.NestedType[nestedIdx])
+	}
+}
 func main() {
 	if len(os.Args) == 2 && os.Args[1] == "--version" {
 		fmt.Fprintf(os.Stdout, "%v %v\n", filepath.Base(os.Args[0]), version.String())
@@ -71,41 +111,7 @@ func main() {
 						f.Aliases = append(f.Aliases, msg)
 						continue
 					}
-
-					for fieldIdx, field := range msg.Fields {
-						aliasField := getAliasType(field.Message)
-						if aliasField == nil {
-							continue
-						}
-
-						fieldDesc := field.Desc.(*filedesc.Field)
-						aliasFieldDesc := aliasField.Desc.(*filedesc.Field)
-
-						if fieldDesc.L1.Cardinality != protoreflect.Repeated {
-							fieldDesc.L1.Options = aliasFieldDesc.L1.Options
-						}
-
-						// fieldDesc.L1.Cardinality = aliasFieldDesc.L1.Cardinality
-						fieldDesc.L1.Kind = aliasFieldDesc.L1.Kind
-						fieldDesc.L1.IsProto3Optional = aliasFieldDesc.L1.IsProto3Optional
-						fieldDesc.L1.Default = aliasFieldDesc.L1.Default
-						fieldDesc.L1.EditionFeatures = aliasFieldDesc.L1.EditionFeatures
-						fieldDesc.L1.Enum = nil
-						fieldDesc.L1.Message = nil
-
-						field.Alias = &field.Message.GoIdent
-						field.Message = nil
-						field.Oneof = nil
-						field.Enum = nil
-
-						kind := descriptorpb.FieldDescriptorProto_Type(fieldDesc.L1.Kind)
-						fd := f.Proto.MessageType[msgIdx].Field[fieldIdx]
-						fd.Type = &kind
-						fd.TypeName = nil
-						if fieldDesc.L1.Options != nil {
-							fd.Options = fieldDesc.L1.Options().(*descriptorpb.FieldOptions)
-						}
-					}
+					processMessage(f, msg, f.Proto.MessageType[msgIdx])
 
 					keepMessages = append(keepMessages, msg)
 					keepMessageTypes = append(keepMessageTypes, f.Proto.MessageType[msgIdx])
