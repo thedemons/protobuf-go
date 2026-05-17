@@ -53,7 +53,7 @@ func processMessage(f *protogen.File, msg *protogen.Message, fProtoMsg *descript
 
 		// fieldDesc.L1.Cardinality = aliasFieldDesc.L1.Cardinality
 		fieldDesc.L1.Kind = aliasFieldDesc.L1.Kind
-		fieldDesc.L1.IsProto3Optional = aliasFieldDesc.L1.IsProto3Optional
+		// fieldDesc.L1.IsProto3Optional = aliasFieldDesc.L1.IsProto3Optional
 		fieldDesc.L1.Default = aliasFieldDesc.L1.Default
 		fieldDesc.L1.EditionFeatures = aliasFieldDesc.L1.EditionFeatures
 		fieldDesc.L1.Enum = nil
@@ -61,7 +61,7 @@ func processMessage(f *protogen.File, msg *protogen.Message, fProtoMsg *descript
 
 		field.Alias = &field.Message.GoIdent
 		field.Message = nil
-		field.Oneof = nil
+		// field.Oneof = nil
 		field.Enum = nil
 
 		kind := descriptorpb.FieldDescriptorProto_Type(fieldDesc.L1.Kind)
